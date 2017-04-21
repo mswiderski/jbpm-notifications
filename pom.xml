@@ -1,0 +1,91 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.jbpm.extension</groupId>
+  <artifactId>jbpm-notifications</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>jBPM extensions :: Notifications</name>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <drools.version>7.0.0-SNAPSHOT</drools.version>
+    <jbpm.version>7.0.0-SNAPSHOT</jbpm.version>
+    <app.version>0.0.1-SNAPSHOT</app.version>
+    <reflections.version>0.9.10</reflections.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.drools</groupId>
+        <artifactId>drools-bom</artifactId>
+        <type>pom</type>
+        <version>${drools.version}</version>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.jbpm</groupId>
+        <artifactId>jbpm-bom</artifactId>
+        <type>pom</type>
+        <version>${jbpm.version}</version>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.jbpm.extension</groupId>
+        <artifactId>jbpm-notifications-api</artifactId>
+        <version>${app.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jbpm.extension</groupId>
+        <artifactId>jbpm-notifications-impl</artifactId>
+        <version>${app.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jbpm.extension</groupId>
+        <artifactId>jbpm-notifications-kieserver</artifactId>
+        <version>${app.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.reflections</groupId>
+        <artifactId>reflections</artifactId>
+        <version>${reflections.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <modules>
+    <module>jbpm-notifications-api</module>
+    <module>jbpm-notifications-impl</module>
+    <module>jbpm-notifications-kieserver</module>
+  </modules>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <repositories>
+    <repository>
+      <id>jboss-public-repository-group</id>
+      <name>JBoss Public Repository Group</name>
+      <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+      </snapshots>
+    </repository>
+  </repositories>
+</project>

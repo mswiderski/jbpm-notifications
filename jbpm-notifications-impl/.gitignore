@@ -17,3 +17,4 @@ hs_err_pid*
 # Eclipse, Netbeans and IntelliJ files
 /.*
 !.gitignore
+.DS_Store
