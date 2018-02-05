@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.mail.Address;
 
@@ -14,8 +12,7 @@ import org.jbpm.extensions.notifications.api.Message;
 
 public class TextEmailMessageExtractor extends AbstractEmailMessageExtractor {
 
-	private List<String> supportedContentTypes = Arrays.asList("text/plain");
-	private Pattern extractPattern = Pattern.compile("<([\\S&&[^\\}]]+)>");
+	private List<String> supportedContentTypes = Arrays.asList("text/plain");	
 	
 	@Override
 	public boolean accept(Object rawMessage) {
@@ -30,14 +27,12 @@ public class TextEmailMessageExtractor extends AbstractEmailMessageExtractor {
 	public Message extract(Object rawMessage) {
 		try {
 			javax.mail.Message source = (javax.mail.Message) rawMessage;
-			String[] replyToMessageId = source.getHeader("In-Reply-To");
-			if (replyToMessageId == null || replyToMessageId.length == 0) {
-				return null;
-			}
-					
+				
 			MessageImpl message = new MessageImpl();		
 			message.setSubject(source.getSubject());        
-			message.setMessageId(extract(replyToMessageId[0]));
+			message.setMessageId(extract(getReplyToId(source)));
+			message.setSourceMessageId(getSourceId(source));
+			
 	    	String content = source.getContent().toString();
 	    	
 	    	StringBuilder trimmedContent = new StringBuilder();
@@ -52,7 +47,7 @@ public class TextEmailMessageExtractor extends AbstractEmailMessageExtractor {
 	    	scanner.close();
 	    	
 	    	Map<String, Object> data = new HashMap<>();
-	    	data.put("Result", trimmedContent.toString());
+	    	data.put("messageContent", trimmedContent.toString());
 	    	message.setData(data);
 	    	
 	    	message.setContent(content);
@@ -70,15 +65,7 @@ public class TextEmailMessageExtractor extends AbstractEmailMessageExtractor {
 		}
 	}
 
-	
-	protected String extract(String value) {
-		Matcher matcher = extractPattern.matcher(value);
-        while (matcher.find()) {
-        	value = matcher.group(1);
-        }
-        
-        return value;
-	}
+
 
 	@Override
 	public List<String> getSupportedContentTypes() {

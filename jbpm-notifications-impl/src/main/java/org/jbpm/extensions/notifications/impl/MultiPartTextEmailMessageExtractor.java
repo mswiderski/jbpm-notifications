@@ -10,8 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.activation.MimeType;
 import javax.mail.Address;
@@ -30,7 +28,7 @@ public class MultiPartTextEmailMessageExtractor extends AbstractEmailMessageExtr
 	private static final Logger logger = LoggerFactory.getLogger(MultiPartTextEmailMessageExtractor.class);
 	
 	private List<String> supportedContentTypes = Arrays.asList("multipart/alternative", "multipart/mixed");
-	private Pattern extractPattern = Pattern.compile("<([\\S&&[^\\}]]+)>");
+	
 	
 	@Override
 	public boolean accept(Object rawMessage) {
@@ -63,14 +61,12 @@ public class MultiPartTextEmailMessageExtractor extends AbstractEmailMessageExtr
 	public Message extract(Object rawMessage) {
 		try {
 			javax.mail.Message source = (javax.mail.Message) rawMessage;
-			String[] replyToMessageId = source.getHeader("In-Reply-To");
-			if (replyToMessageId == null || replyToMessageId.length == 0) {
-				return null;
-			}
 			
 			MessageImpl message = new MessageImpl();		
 			message.setSubject(source.getSubject());        
-			message.setMessageId(extract(replyToMessageId[0]));
+			message.setMessageId(extract(getReplyToId(source)));
+			message.setSourceMessageId(getSourceId(source));
+			
 			String content = "";
 			Multipart multipartContent = (Multipart) source.getContent();
 			try {
@@ -102,16 +98,16 @@ public class MultiPartTextEmailMessageExtractor extends AbstractEmailMessageExtr
 	    	scanner.close();
 	    	
 	    	Map<String, Object> data = new HashMap<>();
-	    	data.put("Result", trimmedContent.toString());
+	    	data.put("messageContent", trimmedContent.toString());
 	    	
 	    	List<Document> attachments = retrieveAttachments(multipartContent);
 	    	for (Document doc : attachments) {
 	    		data.put(doc.getName(), doc);
 	    	}
 	    	if (attachments.size() == 1) {
-	    		data.put("Attachment", attachments.get(0));
+	    		data.put("attachment", attachments.get(0));
 	    	} else if (!attachments.isEmpty()) {
-	    		data.put("Attachments", attachments);
+	    		data.put("attachments", attachments);
 	    	}
 	    	message.setData(data);
 	    	
@@ -164,14 +160,6 @@ public class MultiPartTextEmailMessageExtractor extends AbstractEmailMessageExtr
 		return attachments;
 	}
 	
-	protected String extract(String value) {
-		Matcher matcher = extractPattern.matcher(value);
-        while (matcher.find()) {
-        	value = matcher.group(1);
-        }
-        
-        return value;
-	}
 
 	@Override
 	public List<String> getSupportedContentTypes() {

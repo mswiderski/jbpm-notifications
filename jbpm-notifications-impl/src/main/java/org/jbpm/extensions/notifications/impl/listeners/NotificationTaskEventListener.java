@@ -178,14 +178,18 @@ public class NotificationTaskEventListener implements TaskLifeCycleEventListener
 		if (task.getTaskData().getTaskInputVariables() != null) {
 			data.putAll(task.getTaskData().getTaskInputVariables());
 		}
-		message.setData(data);		
-		message.setSubject("New task available: " + task.getName() + " (" + task.getId() + ")");
+		message.setData(data);
+		if (task.getSubject() != null && !task.getSubject().isEmpty()) {
+		    message.setSubject(task.getSubject());
+		} else {
+		    message.setSubject("New task available: " + task.getName() + " (" + task.getId() + ")");
+		}
 		
 		List<String> recipients = new ArrayList<>();
 		recipients.addAll(task.getPeopleAssignments().getPotentialOwners()
 				.stream()
 				.filter(oe -> oe instanceof User)
-				.map(entity -> entity.getId())
+				.map(entity -> userInfo.getEmailForEntity(entity))
 				.collect(Collectors.toList()));
 		
 		task.getPeopleAssignments().getPotentialOwners()
@@ -194,11 +198,11 @@ public class NotificationTaskEventListener implements TaskLifeCycleEventListener
 		.forEach(group -> {
 			Iterator<OrganizationalEntity> members = userInfo.getMembersForGroup((Group) group);
 			while (members.hasNext()) {
-				recipients.add(members.next().getId());
+				recipients.add(userInfo.getEmailForEntity(members.next()));
 			}
 		});
 		message.setRecipients(recipients);
-		message.setContent(templateService.apply(message));
+		message.setContent(templateService.apply(message));		
 		
 		notificationService.send(message);
 	}

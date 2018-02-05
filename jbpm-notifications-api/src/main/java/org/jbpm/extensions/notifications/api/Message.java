@@ -17,5 +17,9 @@ public interface Message {
 	
 	Object getContent();
 	
+	String getContentType(); 
+	
 	Map<String, Object> getData();
+	
+	String getSourceMessageId(); 
 }

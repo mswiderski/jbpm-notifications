@@ -9,8 +9,8 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <drools.version>7.0.0-SNAPSHOT</drools.version>
-    <jbpm.version>7.0.0-SNAPSHOT</jbpm.version>
+    <drools.version>7.6.0-SNAPSHOT</drools.version>
+    <jbpm.version>7.6.0-SNAPSHOT</jbpm.version>
     <app.version>0.0.1-SNAPSHOT</app.version>
     <reflections.version>0.9.10</reflections.version>
   </properties>

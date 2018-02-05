@@ -1,5 +1,6 @@
 package org.jbpm.extensions.notifications.kieserver;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -8,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -16,14 +19,13 @@ import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
 import org.jbpm.extensions.notifications.api.service.MessageTemplateService;
 import org.jbpm.extensions.notifications.api.service.NotificationService;
 import org.jbpm.extensions.notifications.api.service.RecipientService;
-import org.jbpm.extensions.notifications.impl.callbacks.CompleteUserTaskCallback;
 import org.jbpm.extensions.notifications.impl.service.DefaultRecipientService;
 import org.jbpm.extensions.notifications.impl.service.EmailNotificationService;
 import org.jbpm.extensions.notifications.impl.service.FreeMarkerMessageTemplateService;
 import org.jbpm.extensions.notifications.impl.utils.Helper;
-import org.jbpm.services.api.UserTaskService;
 import org.kie.scanner.KieModuleMetaData;
 import org.kie.server.api.KieServerConstants;
+import org.kie.server.api.KieServerEnvironment;
 import org.kie.server.services.api.KieContainerInstance;
 import org.kie.server.services.api.KieServerExtension;
 import org.kie.server.services.api.KieServerRegistry;
@@ -43,16 +45,14 @@ public class NotificationKieServerExtension implements KieServerExtension {
 
     private static final Boolean jbpmDisabled = Boolean.parseBoolean(System.getProperty(KieServerConstants.KIE_JBPM_SERVER_EXT_DISABLED, "false"));
 
-    private UserTaskService userTaskService;
     private boolean initialized = false;
-
-    private KieServerRegistry registry;
-
-	private ReceivedMessageCallback callback;
+	
 	private NotificationService notificationService;
 	private MessageTemplateService templateService;
+	private RecipientService recipientService;
 
 	private Map<String, Set<String>> knownTemplates = new ConcurrentHashMap<>();
+	private Map<String, NotificationService> notificationServicePerContainer = new ConcurrentHashMap<>();
 
 	public NotificationKieServerExtension() {
 		if (System.getProperty("org.kie.deployment.desc.location") == null) {
@@ -70,43 +70,38 @@ public class NotificationKieServerExtension implements KieServerExtension {
 		return jbpmDisabled == false;
 	}
 
-	@Override
-	public void init(KieServerImpl kieServer, KieServerRegistry registry) {
-		this.registry = registry;
+    @Override
+    public void init(KieServerImpl kieServer, KieServerRegistry registry) {        
         KieServerExtension jbpmExtension = registry.getServerExtension("jBPM");
         if (jbpmExtension == null) {
             initialized = false;
             logger.warn("jBPM extension not found, jBPM Notifications cannot work without jBPM extension, disabling itself");
             return;
         }
+        recipientService = new DefaultRecipientService();
+        
+        templateService = new FreeMarkerMessageTemplateService();
 
-        List<Object> jbpmServices = jbpmExtension.getServices();
-
-        for( Object object : jbpmServices ) {
-            // in case given service is null (meaning was not configured) continue with next one
-            if (object == null) {
-                continue;
-            }
-
-            if( UserTaskService.class.isAssignableFrom(object.getClass()) ) {
-                userTaskService = (UserTaskService) object;
-                continue;
-            }
+        try {
+            Properties emailServiceConfiguration = new Properties();
+            emailServiceConfiguration.load(this.getClass().getResourceAsStream("/email-service.properties"));
+            
+            this.notificationService = new EmailNotificationService(recipientService, emailServiceConfiguration);
+            
+            
+        } catch (IOException e) {
+            logger.info("No global notification service configuration present, email watcher not started");
         }
-		RecipientService recipientService = new DefaultRecipientService();
-		templateService = new FreeMarkerMessageTemplateService();
-		// TODO replace with proper support
-		((DefaultRecipientService)recipientService).add("user", "email");
-        this.callback = new CompleteUserTaskCallback(userTaskService, recipientService);
-        this.notificationService = new EmailNotificationService();
-        this.notificationService.start(callback);
+
         this.initialized = true;
-	}
+    }
 
 	@Override
 	public void destroy(KieServerImpl kieServer, KieServerRegistry registry) {
-		this.notificationService.stop();
-
+		if (this.notificationService != null) {
+    	    this.notificationService.stop();
+    		logger.info("Email watcher stopped for server {}", KieServerEnvironment.getServerId());
+		}
 	}
 
 	@Override
@@ -146,26 +141,47 @@ public class NotificationKieServerExtension implements KieServerExtension {
 				}
 			});
 		}
-
+		
+		
+		try {
+            Properties emailServiceConfiguration = new Properties();
+            emailServiceConfiguration.load(kieContainerInstance.getKieContainer().getClassLoader().getResourceAsStream("/kjar-email-service.properties"));
+            
+            EmailNotificationService kjarNotificationService = new EmailNotificationService(recipientService, emailServiceConfiguration);
+            List<ReceivedMessageCallback> callbacks = new ArrayList<>();
+            collectCallbacks(kieContainerInstance.getKieContainer().getClassLoader(), callbacks);
+            kjarNotificationService.start(callbacks.toArray(new ReceivedMessageCallback[callbacks.size()]));
+            
+            notificationServicePerContainer.put(id, kjarNotificationService);
+            logger.info("Email watcher started for container {}", id);
+        } catch (Exception e) {
+            logger.info("No notification service configuration present in container {}, email watcher not started for container {}", id, id);
+        }
 	}
 
 	@Override
 	public void updateContainer(String id, KieContainerInstance kieContainerInstance, Map<String, Object> parameters) {
 
-		knownTemplates.get(id).forEach(templateId -> {
-			templateService.unregisterTemplate(templateId);
-		});
+		disposeContainer(id, kieContainerInstance, parameters);
+		createContainer(id, kieContainerInstance, parameters);
 	}
 
 	@Override
-	public boolean isUpdateContainerAllowed(String id, KieContainerInstance kieContainerInstance,
-			Map<String, Object> parameters) {
+	public boolean isUpdateContainerAllowed(String id, KieContainerInstance kieContainerInstance, Map<String, Object> parameters) {
 		return true;
 	}
 
 	@Override
 	public void disposeContainer(String id, KieContainerInstance kieContainerInstance, Map<String, Object> parameters) {
-
+	    NotificationService kjarNotificationService = notificationServicePerContainer.remove(id);
+	    if (kjarNotificationService != null) {
+	        kjarNotificationService.stop();
+	        logger.info("Email watcher stopped for container {}", id);
+	    }
+	    
+	    knownTemplates.get(id).forEach(templateId -> {
+            templateService.unregisterTemplate(templateId);
+        });
 	}
 
 	@Override
@@ -202,5 +218,20 @@ public class NotificationKieServerExtension implements KieServerExtension {
 	public String toString() {
 		return EXTENSION_NAME;
 	}
+
+    public void startNotificationService() {
+        if (notificationService != null) {
+            List<ReceivedMessageCallback> callbacks = new ArrayList<>();
+            collectCallbacks(this.getClass().getClassLoader(), callbacks);
+            this.notificationService.start(callbacks.toArray(new ReceivedMessageCallback[callbacks.size()]));
+            logger.info("Email watcher started for server {}", KieServerEnvironment.getServerId());
+        }
+        
+    }
+    
+    protected void collectCallbacks(ClassLoader cl, List<ReceivedMessageCallback> callbacks) {
+        ServiceLoader<ReceivedMessageCallback> loaded = ServiceLoader.load(ReceivedMessageCallback.class, cl);
+        loaded.forEach(me -> callbacks.add(me));
+    }
 
 }

@@ -5,13 +5,14 @@ import java.util.List;
 
 import org.jbpm.extensions.notifications.api.Message;
 import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
+import org.jbpm.extensions.notifications.api.service.RecipientService;
 
 public class TestReceivedMessagedCallback implements ReceivedMessageCallback {
 
 	private List<Message> receivedMessages = new ArrayList<>();
 	
 	@Override
-	public void onMessage(Message message) {
+	public void onMessage(RecipientService recipientService, Message message) {
 		this.receivedMessages.add(message);
 
 	}

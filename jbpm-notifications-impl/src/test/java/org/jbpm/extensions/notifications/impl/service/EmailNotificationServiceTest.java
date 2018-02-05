@@ -1,6 +1,7 @@
 package org.jbpm.extensions.notifications.impl.service;
 
 import java.util.Arrays;
+import java.util.Properties;
 
 import org.jbpm.extensions.notifications.impl.MessageImpl;
 import org.jbpm.extensions.notifications.impl.ServiceRepository;
@@ -19,7 +20,11 @@ public class EmailNotificationServiceTest {
 		ServiceRepository.get().addService("RecipientService", recipientService);
 		
 		TestReceivedMessagedCallback callback = new TestReceivedMessagedCallback();
-		EmailNotificationService service = new EmailNotificationService();				
+		
+		Properties emailServiceConfiguration = new Properties();
+        emailServiceConfiguration.load(this.getClass().getResourceAsStream("/email-service.properties"));
+		
+		EmailNotificationService service = new EmailNotificationService(recipientService, emailServiceConfiguration);				
 		
 		String messageId = "jbpm/containers/test/tasks/3";
 		MessageImpl message = new MessageImpl();

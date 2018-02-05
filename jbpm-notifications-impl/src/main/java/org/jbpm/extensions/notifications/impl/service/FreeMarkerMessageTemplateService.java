@@ -15,6 +15,7 @@ import freemarker.template.Template;
 public class FreeMarkerMessageTemplateService implements MessageTemplateService {
 
 	private static final String DEFULT_TEMPLATE_NAME = "default";
+	private static final String ASSISTANT_TEMPLATE_NAME = "assistant";
 	private static final String RESOURCE_TYPE = "-email\\.ftl";
 	
 	private StringTemplateLoader stringLoader = new StringTemplateLoader();
@@ -29,6 +30,8 @@ public class FreeMarkerMessageTemplateService implements MessageTemplateService 
         
         String defaultTemplate = Helper.read(this.getClass().getResourceAsStream("/default-email.ftl"));
         registerTemplate(DEFULT_TEMPLATE_NAME, defaultTemplate);
+        String assistantTemplate = Helper.read(this.getClass().getResourceAsStream("/assistant-email.ftl"));
+        registerTemplate(ASSISTANT_TEMPLATE_NAME, assistantTemplate);
 	}
 	
 	@Override
