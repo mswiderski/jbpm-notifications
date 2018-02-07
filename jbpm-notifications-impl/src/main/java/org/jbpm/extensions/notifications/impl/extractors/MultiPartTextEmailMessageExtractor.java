@@ -1,4 +1,4 @@
-package org.jbpm.extensions.notifications.impl;
+package org.jbpm.extensions.notifications.impl.extractors;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -20,6 +20,7 @@ import javax.mail.Part;
 import org.jbpm.document.Document;
 import org.jbpm.document.service.impl.DocumentImpl;
 import org.jbpm.extensions.notifications.api.Message;
+import org.jbpm.extensions.notifications.impl.MessageImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

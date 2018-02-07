@@ -1,4 +1,4 @@
-package org.jbpm.extensions.notifications.impl;
+package org.jbpm.extensions.notifications.impl.extractors;
 
 import java.util.List;
 import java.util.regex.Matcher;

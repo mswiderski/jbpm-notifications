@@ -1,11 +1,13 @@
 package org.jbpm.extensions.notifications.impl.service;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -15,9 +17,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import javax.activation.DataHandler;
+import javax.activation.MimetypesFileTypeMap;
 import javax.mail.Flags;
 import javax.mail.Folder;
 import javax.mail.MessagingException;
+import javax.mail.Multipart;
 import javax.mail.PasswordAuthentication;
 import javax.mail.Session;
 import javax.mail.Store;
@@ -25,18 +29,20 @@ import javax.mail.Transport;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import javax.mail.search.FlagTerm;
 import javax.mail.util.ByteArrayDataSource;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
+import org.jbpm.document.Document;
 import org.jbpm.extensions.notifications.api.Message;
 import org.jbpm.extensions.notifications.api.MessageExtractor;
-import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
+import org.jbpm.extensions.notifications.api.ReceivedMessageHandler;
 import org.jbpm.extensions.notifications.api.service.NotificationService;
-import org.jbpm.extensions.notifications.api.service.RecipientService;
-import org.jbpm.extensions.notifications.impl.ServiceRepository;
+import org.jbpm.services.api.service.ServiceRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +55,7 @@ public class EmailNotificationService implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailNotificationService.class);
     private ScheduledExecutorService keepAlive = Executors.newScheduledThreadPool(1);
-    private static final int KEEP_ALIVE_FREQ = Integer.parseInt(System.getProperty("org.jbpm.notifications.keepalive.interval", "5"));
+    private static final int KEEP_ALIVE_FREQ = Integer.parseInt(System.getProperty("org.jbpm.notifications.keepalive.interval", "10"));
 
     private ExecutorService es;
     private boolean executorServiceManaged = false;
@@ -61,21 +67,21 @@ public class EmailNotificationService implements NotificationService {
 
     private IdleManager idleManager;
 
-    private List<ReceivedMessageCallback> callbacks = new CopyOnWriteArrayList<>();
+    private List<ReceivedMessageHandler> callbacks = new CopyOnWriteArrayList<>();
 
-    private Properties emailServiceConfiguration;
-    private RecipientService recipientService;
+    private Properties emailServiceConfiguration;    
 
-    public EmailNotificationService(RecipientService recipientService, Properties emailServiceConfiguration) {
-        this.recipientService = recipientService;
+    public EmailNotificationService(Properties emailServiceConfiguration) {
         this.emailServiceConfiguration = emailServiceConfiguration;
 
     }
 
     @Override
     public void send(Message message) {
-        Session session = getSession(emailServiceConfiguration.getProperty("smtp.host"), emailServiceConfiguration.getProperty("smtp.port"), emailServiceConfiguration.getProperty("username"), emailServiceConfiguration
-                                                                                                                                                                                                                         .getProperty("password"),
+        Session session = getSession(emailServiceConfiguration.getProperty("smtp.host"), 
+                                     emailServiceConfiguration.getProperty("smtp.port"), 
+                                     emailServiceConfiguration.getProperty("username"), 
+                                     emailServiceConfiguration.getProperty("password"),
                                      true);
         String subjectPrefix = "";
         javax.mail.Message msg = null;
@@ -101,8 +107,37 @@ public class EmailNotificationService implements NotificationService {
                     subjectPrefix = "Re:";
                 }
             }
+            List<Document> attachments = new ArrayList<>();
+            
+            for (Entry<String, Object> entry : message.getData().entrySet()) {
+                if (entry.getValue() instanceof Document) {
+                    attachments.add((Document) entry.getValue());
+                }
+            }
+            if (!attachments.isEmpty()) {
+                Multipart multipart = new MimeMultipart();
+                // prepare body as first mime body part
+                MimeBodyPart messageBodyPart = new MimeBodyPart();
 
-            msg.setDataHandler(new DataHandler(new ByteArrayDataSource(message.getContent().toString().getBytes("UTF-8"), message.getContentType())));
+                messageBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(message.getContent().toString().getBytes("UTF-8"), message.getContentType())));
+                multipart.addBodyPart(messageBodyPart);
+
+                
+                for (Document attachment : attachments) {
+                    MimeBodyPart attachementBodyPart = new MimeBodyPart();
+                    
+                    String contentType = MimetypesFileTypeMap.getDefaultFileTypeMap().getContentType(new File(attachment.getName()));
+                    attachementBodyPart.setDataHandler(new DataHandler(new ByteArrayDataSource(attachment.getContent(), contentType)));                   
+                    attachementBodyPart.setFileName(attachment.getName());
+                    attachementBodyPart.setContentID("<" + attachment.getName() + ">");
+
+                    multipart.addBodyPart(attachementBodyPart);
+                }
+                // Put parts in message
+                msg.setContent(multipart);
+            } else {
+                msg.setDataHandler(new DataHandler(new ByteArrayDataSource(message.getContent().toString().getBytes("UTF-8"), message.getContentType())));
+            }
 
             msg.setSubject(subjectPrefix + message.getSubject());
             msg.setSentDate(new Date());
@@ -124,7 +159,7 @@ public class EmailNotificationService implements NotificationService {
     }
 
     @Override
-    public void start(ReceivedMessageCallback... callback) {
+    public void start(ReceivedMessageHandler... callback) {
         try {
             try {
                 this.es = InitialContext.doLookup("java:comp/DefaultManagedExecutorService");
@@ -175,21 +210,25 @@ public class EmailNotificationService implements NotificationService {
                 public void messagesAdded(MessageCountEvent event) {
 
                     javax.mail.Message[] messages = event.getMessages();
-
-                    for (javax.mail.Message message : messages) {
-                        processMessage(message);
-                    }
                     try {
-                        idleManager.watch(folder);
+                        for (javax.mail.Message message : messages) {
+                            processMessage(message);
+                        }
                     } catch (Exception e) {
-                        logger.error("Error when setting email watcher", e);
+                        logger.error("When processing received messages", e);
+                    } finally {
+                        // regardless of the processing always re-watch on folder
+                        try {
+                            idleManager.watch(folder);
+                        } catch (Exception e) {
+                            logger.error("Error when setting email watcher", e);
+                        }
                     }
-
                 }
 
             });            
 
-            ServiceRepository.get().addService("EmailService", this);
+            ServiceRegistry.get().register("EmailService", this);
             
             Flags seen = new Flags(Flags.Flag.SEEN);
             FlagTerm unseenFlagTerm = new FlagTerm(seen, false);
@@ -301,7 +340,7 @@ public class EmailNotificationService implements NotificationService {
                 try {
                     Class<?> clazz = Class.forName(callbackClass, true, this.getClass().getClassLoader());
 
-                    ReceivedMessageCallback instance = (ReceivedMessageCallback) clazz.newInstance();
+                    ReceivedMessageHandler instance = (ReceivedMessageHandler) clazz.newInstance();
                     callbacks.add(instance);
                 } catch (Exception e) {
                     logger.warn("Unable to create instance of callback for class name {}", callbackClass, e);
@@ -345,9 +384,9 @@ public class EmailNotificationService implements NotificationService {
 
             logger.info("Message received and exctracted {}", extracted);
 
-            for (ReceivedMessageCallback callback : callbacks) {
+            for (ReceivedMessageHandler callback : callbacks) {
                 try {
-                    callback.onMessage(recipientService, extracted);
+                    callback.onMessage(extracted);
                 } catch (Exception e) {
                     logger.warn("Error when invoking callback {} with error {}", callback, e.getMessage(), e);
                 }

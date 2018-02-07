@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.Properties;
 
 import org.jbpm.extensions.notifications.impl.MessageImpl;
-import org.jbpm.extensions.notifications.impl.ServiceRepository;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -15,16 +14,13 @@ public class EmailNotificationServiceTest {
 	@Test
 	public void testReceiveMessage() throws Exception {
 		
-		DefaultRecipientService recipientService = new DefaultRecipientService();
-		recipientService.add("maciek", "swiderski.maciej@gmail.com");
-		ServiceRepository.get().addService("RecipientService", recipientService);
-		
+
 		TestReceivedMessagedCallback callback = new TestReceivedMessagedCallback();
 		
 		Properties emailServiceConfiguration = new Properties();
         emailServiceConfiguration.load(this.getClass().getResourceAsStream("/email-service.properties"));
 		
-		EmailNotificationService service = new EmailNotificationService(recipientService, emailServiceConfiguration);				
+		EmailNotificationService service = new EmailNotificationService(emailServiceConfiguration);				
 		
 		String messageId = "jbpm/containers/test/tasks/3";
 		MessageImpl message = new MessageImpl();

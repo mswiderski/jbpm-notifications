@@ -1,4 +1,4 @@
-package org.jbpm.extensions.notifications.impl;
+package org.jbpm.extensions.notifications.impl.extractors;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -9,6 +9,7 @@ import java.util.Scanner;
 import javax.mail.Address;
 
 import org.jbpm.extensions.notifications.api.Message;
+import org.jbpm.extensions.notifications.impl.MessageImpl;
 
 public class TextEmailMessageExtractor extends AbstractEmailMessageExtractor {
 

@@ -1,0 +1,2 @@
+org.jbpm.extensions.notifications.impl.handlers.CompleteUserTaskHandler
+org.jbpm.extensions.notifications.impl.handlers.StartProcessHandler

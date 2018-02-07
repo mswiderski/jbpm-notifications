@@ -1,6 +1,5 @@
 package org.jbpm.extensions.notifications.kieserver;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -15,14 +14,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
-import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
-import org.jbpm.extensions.notifications.api.service.MessageTemplateService;
+import org.jbpm.extensions.notifications.api.ReceivedMessageHandler;
 import org.jbpm.extensions.notifications.api.service.NotificationService;
-import org.jbpm.extensions.notifications.api.service.RecipientService;
-import org.jbpm.extensions.notifications.impl.service.DefaultRecipientService;
 import org.jbpm.extensions.notifications.impl.service.EmailNotificationService;
-import org.jbpm.extensions.notifications.impl.service.FreeMarkerMessageTemplateService;
 import org.jbpm.extensions.notifications.impl.utils.Helper;
+import org.jbpm.process.workitem.email.TemplateManager;
 import org.kie.scanner.KieModuleMetaData;
 import org.kie.server.api.KieServerConstants;
 import org.kie.server.api.KieServerEnvironment;
@@ -40,6 +36,8 @@ import org.slf4j.LoggerFactory;
 public class NotificationKieServerExtension implements KieServerExtension {
 
 	public static final String EXTENSION_NAME = "jBPM-Notifications";
+	private static final String DEFULT_TEMPLATE_NAME = "default";
+	private static final String RESOURCE_TYPE = "-email\\.(ftl|html)";
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationKieServerExtension.class);
 
@@ -48,17 +46,11 @@ public class NotificationKieServerExtension implements KieServerExtension {
     private boolean initialized = false;
 	
 	private NotificationService notificationService;
-	private MessageTemplateService templateService;
-	private RecipientService recipientService;
+	private TemplateManager templateService = TemplateManager.get();
 
 	private Map<String, Set<String>> knownTemplates = new ConcurrentHashMap<>();
 	private Map<String, NotificationService> notificationServicePerContainer = new ConcurrentHashMap<>();
 
-	public NotificationKieServerExtension() {
-		if (System.getProperty("org.kie.deployment.desc.location") == null) {
-			System.setProperty("org.kie.deployment.desc.location", "classpath:/dd.xml");
-		}
-	}
 
 	@Override
 	public boolean isInitialized() {
@@ -78,18 +70,17 @@ public class NotificationKieServerExtension implements KieServerExtension {
             logger.warn("jBPM extension not found, jBPM Notifications cannot work without jBPM extension, disabling itself");
             return;
         }
-        recipientService = new DefaultRecipientService();
-        
-        templateService = new FreeMarkerMessageTemplateService();
+        String defaultTemplate = Helper.read(this.getClass().getResourceAsStream("/default-email.ftl"));
+        templateService.registerTemplate(DEFULT_TEMPLATE_NAME, defaultTemplate);
 
         try {
             Properties emailServiceConfiguration = new Properties();
             emailServiceConfiguration.load(this.getClass().getResourceAsStream("/email-service.properties"));
             
-            this.notificationService = new EmailNotificationService(recipientService, emailServiceConfiguration);
+            this.notificationService = new EmailNotificationService(emailServiceConfiguration);
             
             
-        } catch (IOException e) {
+        } catch (Exception e) {
             logger.info("No global notification service configuration present, email watcher not started");
         }
 
@@ -122,7 +113,7 @@ public class NotificationKieServerExtension implements KieServerExtension {
 
 			Reflections reflections = new Reflections(builder);
 
-			Set<String> foundResources = reflections.getResources(Pattern.compile(".*" + templateService.getResourceType()));
+			Set<String> foundResources = reflections.getResources(Pattern.compile(".*" + RESOURCE_TYPE));
 			logger.debug("Found following templates {}", foundResources);
 
 			Set<String> registeredTemplates = new HashSet<>();
@@ -134,7 +125,7 @@ public class NotificationKieServerExtension implements KieServerExtension {
 					String templateId = Paths.get(filePath).getFileName().toString();
 					String templateContent = Helper.read(in);
 
-					templateService.registerTemplate(templateId.replaceFirst(templateService.getResourceType(), ""), templateContent);
+					templateService.registerTemplate(templateId.replaceFirst(RESOURCE_TYPE, ""), templateContent);
 					registeredTemplates.add(templateId);
 				} else {
 					logger.warn("Cannot load template from path {}", filePath);
@@ -145,12 +136,12 @@ public class NotificationKieServerExtension implements KieServerExtension {
 		
 		try {
             Properties emailServiceConfiguration = new Properties();
-            emailServiceConfiguration.load(kieContainerInstance.getKieContainer().getClassLoader().getResourceAsStream("/kjar-email-service.properties"));
+            emailServiceConfiguration.load(kieContainerInstance.getKieContainer().getClassLoader().getResourceAsStream("kjar-email-service.properties"));
             
-            EmailNotificationService kjarNotificationService = new EmailNotificationService(recipientService, emailServiceConfiguration);
-            List<ReceivedMessageCallback> callbacks = new ArrayList<>();
+            EmailNotificationService kjarNotificationService = new EmailNotificationService(emailServiceConfiguration);
+            List<ReceivedMessageHandler> callbacks = new ArrayList<>();
             collectCallbacks(kieContainerInstance.getKieContainer().getClassLoader(), callbacks);
-            kjarNotificationService.start(callbacks.toArray(new ReceivedMessageCallback[callbacks.size()]));
+            kjarNotificationService.start(callbacks.toArray(new ReceivedMessageHandler[callbacks.size()]));
             
             notificationServicePerContainer.put(id, kjarNotificationService);
             logger.info("Email watcher started for container {}", id);
@@ -221,16 +212,16 @@ public class NotificationKieServerExtension implements KieServerExtension {
 
     public void startNotificationService() {
         if (notificationService != null) {
-            List<ReceivedMessageCallback> callbacks = new ArrayList<>();
+            List<ReceivedMessageHandler> callbacks = new ArrayList<>();
             collectCallbacks(this.getClass().getClassLoader(), callbacks);
-            this.notificationService.start(callbacks.toArray(new ReceivedMessageCallback[callbacks.size()]));
+            this.notificationService.start(callbacks.toArray(new ReceivedMessageHandler[callbacks.size()]));
             logger.info("Email watcher started for server {}", KieServerEnvironment.getServerId());
         }
         
     }
     
-    protected void collectCallbacks(ClassLoader cl, List<ReceivedMessageCallback> callbacks) {
-        ServiceLoader<ReceivedMessageCallback> loaded = ServiceLoader.load(ReceivedMessageCallback.class, cl);
+    protected void collectCallbacks(ClassLoader cl, List<ReceivedMessageHandler> callbacks) {
+        ServiceLoader<ReceivedMessageHandler> loaded = ServiceLoader.load(ReceivedMessageHandler.class, cl);
         loaded.forEach(me -> callbacks.add(me));
     }
 

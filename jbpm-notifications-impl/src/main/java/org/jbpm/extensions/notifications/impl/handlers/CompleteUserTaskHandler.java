@@ -1,19 +1,26 @@
-package org.jbpm.extensions.notifications.impl.callbacks;
+package org.jbpm.extensions.notifications.impl.handlers;
 
 import org.jbpm.extensions.notifications.api.Message;
-import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
-import org.jbpm.extensions.notifications.api.service.RecipientService;
+import org.jbpm.extensions.notifications.api.ReceivedMessageHandler;
+import org.jbpm.runtime.manager.impl.identity.UserDataServiceProvider;
 import org.jbpm.services.api.UserTaskService;
 import org.jbpm.services.api.service.ServiceRegistry;
+import org.kie.internal.task.api.UserInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CompleteUserTaskCallback implements ReceivedMessageCallback {
+public class CompleteUserTaskHandler implements ReceivedMessageHandler {
 	
-	private static final Logger logger = LoggerFactory.getLogger(CompleteUserTaskCallback.class);
+	private static final Logger logger = LoggerFactory.getLogger(CompleteUserTaskHandler.class);
+	
+	private UserInfo userInfo;
+		
+    public CompleteUserTaskHandler() {
+        this.userInfo = UserDataServiceProvider.getUserInfo();
+    }
 
 	@Override
-	public void onMessage(RecipientService recipientService, Message message) {
+	public void onMessage(Message message) {
 		// expected message id format is org/containers/{containerid}/tasks/{id}@domain
 		String messageId = message.getMessageId();
 		logger.debug("Received message with id {} is {}", messageId, message);
@@ -32,7 +39,7 @@ public class CompleteUserTaskCallback implements ReceivedMessageCallback {
 		logger.debug("Message refers to container {} and task {}", containerId, taskId);
 		
 		UserTaskService userTaskService = (UserTaskService) ServiceRegistry.get().service(ServiceRegistry.USER_TASK_SERVICE);
-		String userId = recipientService.getUserId(message.getSender());
+		String userId = userInfo.getEntityForEmail(message.getSender());
 		logger.debug("About to complete task {} with data {} as user {}", taskId, message.getData(), userId);
 		userTaskService.completeAutoProgress(Long.valueOf(taskId), userId, message.getData());
 

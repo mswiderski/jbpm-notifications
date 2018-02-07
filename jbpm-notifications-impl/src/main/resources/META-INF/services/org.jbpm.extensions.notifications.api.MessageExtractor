@@ -1,2 +1,2 @@
-org.jbpm.extensions.notifications.impl.TextEmailMessageExtractor
-org.jbpm.extensions.notifications.impl.MultiPartTextEmailMessageExtractor
+org.jbpm.extensions.notifications.impl.extractors.TextEmailMessageExtractor
+org.jbpm.extensions.notifications.impl.extractors.MultiPartTextEmailMessageExtractor

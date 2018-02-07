@@ -1,2 +1,0 @@
-org.jbpm.extensions.notifications.impl.callbacks.CompleteUserTaskCallback
-org.jbpm.extensions.notifications.impl.callbacks.StartProcessCallback

@@ -4,15 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jbpm.extensions.notifications.api.Message;
-import org.jbpm.extensions.notifications.api.ReceivedMessageCallback;
-import org.jbpm.extensions.notifications.api.service.RecipientService;
+import org.jbpm.extensions.notifications.api.ReceivedMessageHandler;
 
-public class TestReceivedMessagedCallback implements ReceivedMessageCallback {
+public class TestReceivedMessagedCallback implements ReceivedMessageHandler {
 
 	private List<Message> receivedMessages = new ArrayList<>();
 	
 	@Override
-	public void onMessage(RecipientService recipientService, Message message) {
+	public void onMessage(Message message) {
 		this.receivedMessages.add(message);
 
 	}
