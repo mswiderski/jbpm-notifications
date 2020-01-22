@@ -37,7 +37,7 @@ public class StartProcessHandler implements ReceivedMessageHandler {
 		String[] subjectSplit = message.getSubject().split(":");
 			
 		if (subjectSplit.length != 2) {
-		    logger.debug("Subject " + message.getSubject() + " has invalid format, quiting");
+		    logger.warn("Subject " + message.getSubject() + " has invalid format, quiting");
 		    return;
 		}
 		containerId = subjectSplit[0];

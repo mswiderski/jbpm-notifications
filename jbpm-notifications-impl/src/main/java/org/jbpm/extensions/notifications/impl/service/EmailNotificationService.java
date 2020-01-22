@@ -378,11 +378,12 @@ public class EmailNotificationService implements NotificationService {
 
             Message extracted = extractor.extract(message);
             if (extracted == null) {
-                logger.info("Message extraction returned no message");
+                logger.warn("Message extraction returned no message");
                 return;
             }
 
-            logger.info("Message received and exctracted {}", extracted);
+            logger.info("Message received from {}", extracted.getSender());
+            logger.debug("Message content extrated: {}", extracted);
 
             for (ReceivedMessageHandler callback : callbacks) {
                 try {
