@@ -122,11 +122,17 @@ public class NotificationKieServerExtension implements KieServerExtension {
 			foundResources.forEach(filePath -> {
 				InputStream in = classloader.getResourceAsStream(filePath);
 				if (in != null) {
+					logger.debug("trying to read from path {}", filePath);
 					String templateId = Paths.get(filePath).getFileName().toString();
 					String templateContent = Helper.read(in);
 
-					templateService.registerTemplate(templateId.replaceFirst(RESOURCE_TYPE, ""), templateContent);
-					registeredTemplates.add(templateId);
+					if (templateContent != null){
+						templateService.registerTemplate(templateId.replaceFirst(RESOURCE_TYPE, ""), templateContent);
+						registeredTemplates.add(templateId);	
+					}
+					else{
+						logger.warn("Cannot load template from path {}", filePath);
+					}
 				} else {
 					logger.warn("Cannot load template from path {}", filePath);
 				}

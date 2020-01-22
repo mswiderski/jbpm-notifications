@@ -6,7 +6,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class Helper {
+
+    private static final Logger logger = LoggerFactory.getLogger(Helper.class);
 
 	public static String read(InputStream input) {
         String lineSeparator = System.getProperty("line.separator");
@@ -14,6 +19,7 @@ public class Helper {
         try (BufferedReader buffer = new BufferedReader(new InputStreamReader(input, Charset.forName("UTF-8")))) {
             return buffer.lines().collect(Collectors.joining(lineSeparator));
         } catch (Exception e) {
+            logger.error("Error trying to read from inputStream.", e);
             return null;
         }
     }
