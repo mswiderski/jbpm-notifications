@@ -48,7 +48,7 @@ public class StartProcessHandler implements ReceivedMessageHandler {
 		parameters.put("sender", userId);
 		
 		ProcessService processService = (ProcessService) ServiceRegistry.get().service(ServiceRegistry.PROCESS_SERVICE);
-		logger.debug("About to start process with id {} with data {} in container {}", processId, parameters, containerId);
+		logger.debug("About to start process with id {} with data {} in container {} as user {} ", processId, parameters, containerId, userId);
 		long processInstanceId = processService.startProcess(containerId, processId, parameters);
 		logger.debug("Process instance started with id {} for message {}", processInstanceId, message);
 	}

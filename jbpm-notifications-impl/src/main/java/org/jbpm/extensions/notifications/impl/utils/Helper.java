@@ -19,7 +19,7 @@ public class Helper {
         try (BufferedReader buffer = new BufferedReader(new InputStreamReader(input, Charset.forName("UTF-8")))) {
             return buffer.lines().collect(Collectors.joining(lineSeparator));
         } catch (Exception e) {
-            logger.error("Error trying to read from inputStream.", e);
+            logger.error("Error trying to read from inputstream", e);
             return null;
         }
     }
