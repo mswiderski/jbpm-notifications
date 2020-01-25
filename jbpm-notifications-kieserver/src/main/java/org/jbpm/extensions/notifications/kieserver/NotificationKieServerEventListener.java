@@ -45,4 +45,20 @@ public class NotificationKieServerEventListener implements KieServerEventListene
     public void afterContainerStopped(KieServer kieServer, KieContainerInstance containerInstance) {
     }
 
+    @Override
+    public void beforeContainerActivated(KieServer kieServer, KieContainerInstance containerInstance) {
+    }
+
+    @Override
+    public void afterContainerActivated(KieServer kieServer, KieContainerInstance containerInstance) {
+    }
+
+    @Override
+    public void beforeContainerDeactivated(KieServer kieServer, KieContainerInstance containerInstance) {
+    }
+
+    @Override
+    public void afterContainerDeactivated(KieServer kieServer, KieContainerInstance containerInstance) {
+    }
+
 }

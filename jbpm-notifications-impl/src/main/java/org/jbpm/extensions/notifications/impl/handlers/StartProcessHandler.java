@@ -8,6 +8,9 @@ import org.jbpm.runtime.manager.impl.identity.UserDataServiceProvider;
 import org.jbpm.services.api.ProcessService;
 import org.jbpm.services.api.service.ServiceRegistry;
 import org.kie.internal.task.api.UserInfo;
+import org.kie.server.services.api.KieServerRegistry;
+import org.kie.server.services.impl.KieServerLocator;
+import org.kie.server.services.impl.locator.ContainerLocatorProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,24 +34,28 @@ public class StartProcessHandler implements ReceivedMessageHandler {
 			logger.debug("Skiping start process callback as the message is a reply");
 		    return;
 		}
+		String containerAlias;
 		String containerId;
         String processId;
 		
 		String[] subjectSplit = message.getSubject().split(":");
 			
 		if (subjectSplit.length != 2) {
-		    logger.debug("Subject " + message.getSubject() + " has invalid format, quiting");
+		    logger.warn("Subject " + message.getSubject() + " has invalid format, quiting");
 		    return;
 		}
-		containerId = subjectSplit[0];
+		containerAlias = subjectSplit[0];
         processId = subjectSplit[1];
 		
 		String userId = userInfo.getEntityForEmail(message.getSender());
 		Map<String, Object> parameters = message.getData();
 		parameters.put("sender", userId);
-		
-		ProcessService processService = (ProcessService) ServiceRegistry.get().service(ServiceRegistry.PROCESS_SERVICE);
-		logger.debug("About to start process with id {} with data {} in container {}", processId, parameters, containerId);
+
+		logger.debug("Try to retrieve the containerId for the conatinerAlias '{}'' informed in the email's subject.", containerAlias);
+		KieServerRegistry kieContext = KieServerLocator.getInstance().getServerRegistry();
+		containerId = kieContext.getContainerId(containerAlias, ContainerLocatorProvider.get().getLocator());
+		ProcessService processService = (ProcessService) ServiceRegistry.get().service(ServiceRegistry.PROCESS_SERVICE);	
+		logger.debug("About to start process with id {} with data {} in container {} as user {} ", processId, parameters, containerId, userId);
 		long processInstanceId = processService.startProcess(containerId, processId, parameters);
 		logger.debug("Process instance started with id {} for message {}", processInstanceId, message);
 	}

@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.jbpm.extension</groupId>
     <artifactId>jbpm-notifications</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.2-SNAPSHOT</version>
   </parent>
   <artifactId>jbpm-notifications-impl</artifactId>
   <name>jBPM Notifications :: Impl</name>
@@ -21,8 +21,17 @@
       <artifactId>kie-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.kie.server</groupId>
+      <artifactId>kie-server-services-common</artifactId>
+      <version>7.30.0.Final</version>
+    </dependency>
+    <dependency>
       <groupId>org.jbpm</groupId>
       <artifactId>jbpm-services-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jbpm</groupId>
+      <artifactId>jbpm-kie-services</artifactId>
     </dependency>
     <dependency>
       <groupId>org.jbpm</groupId>
